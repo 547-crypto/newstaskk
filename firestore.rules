@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper to check if the user is an admin
+    function isAdmin() {
+      return request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.token.email == 'aryankumarjha000@gmail.com' ||
+        request.auth.token.email == 'aryankumarjha0809@yahoo.com'
+      );
+    }
+
+    match /users/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      // A user can create their own profile
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow user to update their wallet balance or admin to update anything
+      allow update: if request.auth != null && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /tasks/{taskId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /userTasks/{userTaskId} {
+      // Allow user to read their own tasks, or admin to read all
+      allow read: if request.auth != null && (request.auth.uid == resource.data.userId || isAdmin());
+      // Create user task if logged in as that user
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isAdmin();
+    }
+
+    match /withdraws/{withdrawId} {
+      // Allow user to read their own withdraws, or admin to read all
+      allow read: if request.auth != null && (resource == null || request.auth.uid == resource.data.userId || isAdmin());
+      // Create request if logged in as that user
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // Admin can update or delete
+      allow update, delete: if isAdmin();
+    }
+  }
+}
